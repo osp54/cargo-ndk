@@ -208,24 +208,23 @@ fn default_ndk_dir() -> PathBuf {
 
 fn derive_ndk_version(path: &Path) -> anyhow::Result<Version> {
     let data = fs::read_to_string(path.join("source.properties"))?;
-    for line in data.split('\n') {
+
+    for line in data.lines() {
         if line.starts_with("Pkg.Revision") {
-            let mut chunks = line.split(" = ");
-            let _ = chunks
-                .next()
-                .ok_or_else(|| io::Error::new(ErrorKind::Other, "No chunk"))?;
-            let version = chunks
-                .next()
-                .ok_or_else(|| io::Error::new(ErrorKind::Other, "No chunk"))?;
-            let version = match Version::parse(version) {
-                Ok(v) => v,
-                Err(_e) => {
-                    return Err(anyhow::anyhow!(format!(
-                        "Could not parse NDK version. Got: '{}'",
-                        version
-                    )));
-                }
-            };
+            let mut chunks = line.split('=');
+            let _ = chunks.next().ok_or_else(|| {
+                anyhow::anyhow!("Invalid line format: '{}'", line)
+            })?;
+
+            let version_str = chunks.next().ok_or_else(|| {
+                anyhow::anyhow!("Invalid line format: '{}'", line)
+            })?;
+
+            let version_str = version_str.trim();
+            let version = Version::parse(version_str).map_err(|_e| {
+                anyhow::anyhow!("Could not parse NDK version. Got: '{}'", version_str)
+            })?;
+
             return Ok(version);
         }
     }
